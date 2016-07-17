@@ -2,7 +2,7 @@
 
 When it comes to developing a calculation feature in your project, there is always this tricky part of specifying with your Product Owner **the formulas you need to get it right and accurate**. And you may not have the choice regarding the format of this specification, as your Product Owner can decide to give you an existing corporate spreadsheet and say: "there are the formulas, good luck with that".
 
-This is what happened to me in a Javascript-coded project of mine a few days ago. A quick look inside the spreadsheet convinced us that the feature we were about to implement was then of O(my god) complexity, and we were even impressed that such a mess managed to get the things done without errors. Finally a little bit of organization and analysis led us to a quite elegant solution, and we ended up with a fine and functional piece of code.
+This is what happened to me in a Javascript-coded project of mine a few days ago. A quick look inside the spreadsheet convinced us that the feature we were about to implement was then of O(my god) complexity, and we were even impressed that such a mess managed to get everything done without errors. Finally a little bit of organization and analysis led us to a quite elegant solution, and we ended up with a fine and functional piece of code.
 
 Now it's your turn to get things right in a clean code, but no panic! I will explain to you how you can **turn your horrible Excel formulas into a functional calculation feature** with a little bit of reflexion.
 
@@ -22,13 +22,13 @@ You have to answer one question: in what *order* are the result data calculated?
 
 The general case is as follows: to be computed, a line needs the global calculation parameters and the previous calculated line. You can then design a calculation pattern that proceeds line by line, always keeping trace of the previous line for calculation needs.
 
-Sometimes - and this was the case for our project -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed. For example, your formula for a column may depend on a sum on the last values and not only on the last value. This is the case we will study, and we will thus **perform a line-by-line calculation that keeps trace of all the previous lines**.
+Sometimes - and it was the case for our project -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed. For example, your formula for a column may depend on a sum on the last values and not only on the last value. This is the case we will study, and we will thus **perform a line-by-line calculation that keeps trace of all the previous lines**.
 
 Enough analysis for now, we are ready to code the outline of our feature.
 
 ## Data structures and code pattern
 
-We could be tempted to imitate the spreadsheet apparent data structure by putting the result values in a matrix. **I strongly advise you against doing that**, as you will end up with an unreadable code full of ``myMatrix[i][j-1]`` that will be horrible to maintain. Our setup will be:
+We could be tempted to imitate the spreadsheet's apparent data structure by putting the result values in a matrix. **I strongly advise you against doing that**, as you will end up with an unreadable code full of ``myMatrix[i][j-1]`` that will be horrible to maintain. Our setup will be:
 - an object for the input parameters;
 - a table of objects for the results, each line corresponding to a calculation row.
 
@@ -45,7 +45,7 @@ var calculationParams = {
 };
 ```
 
-You can provide new lines of your results table using a function:
+You can provide new lines to your results table using a function:
 
 ```Javascript
 initLine() {
