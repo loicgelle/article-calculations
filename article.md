@@ -18,8 +18,16 @@ Basically, we can identify two areas in the spreadsheet: an area where we can sp
 
 ## Understand the logic
 
-The goal of this first part is to design our calculation pattern, to choose the data structures accordingly and to write the first functions in the most modular way. To do this, a little bit of reflexion is necessary.
+The goal of this first part is to design our calculation pattern in order to choose the data structures accordingly and to write the first functions in the most modular way. To do this, a little bit of reflexion is necessary.
 
 You have to answer one question: in what *order* are the result data calculated? This will allow you to understand the dependencies between the result values and to demystify the apparently magic way Excel updates all the values at the same time, or so.
 
 The general case is as follows: to be computed, a line needs the global calculation parameters and the previous calculated line. You can then design a calculation pattern that proceeds line by line, always keeping trace of the previous line for calculation needs.
+
+Sometimes - and this was the case for our project -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed. For example, your formula for a column may depend on a sum on the last values and not only on the last value. This is the case we will study, and we will thus **perform a line-by-line calculation that keeps trace of all the previous lines**.
+
+Enough analysis for now, we are ready to code the outline of our feature.
+
+## Data structures and code pattern
+
+...
