@@ -1,4 +1,4 @@
-# How To Turn Your Client's Complex Spreadsheet Into Clean Calculation Code
+# How to Turn Your Client's Complex Spreadsheet into Clean Calculation Code
 
 When it comes to developing a calculation feature in your project, there is always this tricky part of specifying with your Product Owner **the formulas you need to get it right and accurate**.
 And you may not have the choice regarding the format of this specification, as your Product Owner can decide to give you an existing corporate spreadsheet and say: "there are the formulas, good luck with that".
@@ -7,30 +7,30 @@ This is what happened to me in a Javascript-coded project of mine a few days ago
 A quick look inside the spreadsheet convinced us that the feature we were about to implement was then of O(my god) complexity, and we were even impressed that such a mess managed to get everything done without errors.
 Finally a little bit of organization and analysis led us to a quite elegant solution, and we ended up with a fine and functional piece of code.
 
-Now it's your turn to get things right in a clean code, but no panic! I will explain to you how you can **turn your horrible Excel formulas into a functional calculation feature** with a little bit of reflexion.
+Now it's your turn to get things right in a clean code, but no panic! I will explain to you how you can **turn your horrible Excel formulas into a functional calculation feature** with a little bit of thinking.
 
 Let's get started!
 
 ## The Spreadsheet
 
 Let's first take a look at the spreadsheet we were given.
-It aims at calculating the month-by-month evolution of a life insurance capital depending on given parameters - contract duration, initial capital, exceptional and periodic payments, funds distribution, management costs, tax rates...
+It aims at forecasting the month-by-month evolution of a set of parameters - temperature, species distribution, air quality,... - in an ecological niche depending on given the initial state of the environment and some calculation parameters. This evolution can be calculated according to a model that describes the interation between the different species and their environment.
 
-Basically, we can identify two areas in the spreadsheet: an area where we can specify the calculation parameters, and the resulting data table that has a fixed number of columns to compute - 58! - and a number of lines that depends on the contract duration.
+Basically, we can identify two areas in the spreadsheet: an area where we can specify the calculation parameters, and the resulting data table that has a fixed number of columns to compute and a number of lines that depends on the calculation duration.
 
 ## Understand the Logic
 
 The goal of this first part is to design our calculation pattern in order to choose the data structures accordingly and to write the first functions in the most modular way.
-To do this, a little bit of reflexion is necessary.
+To do this, a little bit of thinking is necessary.
 
-You have to answer one question: in what *order* are the result data calculated? This will allow you to understand the dependencies between the result values and to demystify the apparently magic way Excel updates all the values at the same time, or so.
+You have to answer one question: in what *order* is the result data calculated? This will allow you to understand the dependencies between the result values and to demystify the apparently magic way Excel updates all the values at the same time.
 
 The general case is as follows: to be computed, a line needs the global calculation parameters and the previous calculated line.
 You can then design a calculation pattern that proceeds line by line, always keeping trace of the previous line for calculation needs.
 
 Sometimes - and it was the case for our project -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed.
 For example, your formula for a column may depend on a sum on the last values and not only on the last value.
-This is the case we will study, and we will thus **perform a line-by-line calculation that keeps trace of all the previous lines**.
+This is the case we will study, and we will thus **perform a line-by-line calculation that keeps track of all the previous lines**.
 
 Enough analysis for now, we are ready to code the outline of our feature.
 
@@ -47,11 +47,11 @@ Here is an example of parameters object:
 
 ```Javascript
 var calculationParams = {
-  contractDuration: 8,
+  calculationDurationInYears: 8,
   ...
-  payments: {
-    amount: 1000,
-    frequency: 6
+  initialState: {
+    temperature: 28,
+    ...
   }
 };
 ```
@@ -59,7 +59,7 @@ var calculationParams = {
 You can provide new lines to your results table using a function:
 
 ```Javascript
-initLine() {
+function initLine() {
   const emptyLine = {
     month: 0,
     year: 0,
@@ -78,8 +78,8 @@ Now the calculations structurally boil down to adding and filling new lines to y
 Let's write the main calculation function:
 
 ```Javascript
-computeResults(calculationParams) {
-  const monthsToCompute = calculationParams.contractDuration * 12;
+function computeResults(calculationParams) {
+  const monthsToCompute = calculationParams.calculationDurationInYears * 12;
   var resultsTable = [];
 
   for(var i=0; i<monthsToCompute; i++) {
@@ -93,7 +93,7 @@ computeResults(calculationParams) {
 and the line calculator:
 
 ```Javascript
-computeLine(calculationParams, resultsTable, index) {
+function computeLine(calculationParams, resultsTable, index) {
   var newLine = initLine();
   resultsTable.push(newLine);
 
@@ -106,7 +106,7 @@ computeLine(calculationParams, resultsTable, index) {
 What we just did looks like nothing, but the pattern we created allows you to handle the formulas and the calculation logic separately.
 You can now write the core calculation functions to compute the columns.
 
-What I suggest is to take a few minutes to analyse the formulas in your spreadsheet and to **write them down in a documentation file in understandable terms**.
+What I suggest is to take a few minutes to analyse the formulas in your spreadsheet and to **write them down in a documentation file in _understandable_ terms**.
 This extra step gives you a file to keep track of the formulas - essential if you want someone else to understand your code without the spreadsheet - and it fastens the development.
 Indeed, there is nothing more annoying that starting to code a feature without being 100% sure of what it will look like in the finest details.
 To convince yourself of the importance of this step, try to imagine what inspires you the most between
@@ -134,7 +134,7 @@ ELSE
 When coding, the second option is way better! When turning this formula into a function it gives us, without trying to refactor at first:
 
 ```Javascript
-computeFirstColumn(calculationParams, resultsTable, index) {
+function computeFirstColumn(calculationParams, resultsTable, index) {
   var line = resultsTable[index];
   line.firstColumn = 0;
 
@@ -168,8 +168,8 @@ If you look carefully at my previous implementation of *computeFirstColumn*, you
 An optimization workaround could be to create a helper object to keep track of the intermediate results:
 
 ```Javascript
-computeResults(calculationParams) {
-  const monthsToCompute = calculationParams.contractDuration * 12;
+function computeResults(calculationParams) {
+  const monthsToCompute = calculationParams.calculationDurationInYears * 12;
   var resultsTable = [];
 
   var calculationHelper = {
@@ -186,7 +186,7 @@ computeResults(calculationParams) {
 ```
 
 ```Javascript
-computeLine(calculationParams, resultsTable, calculationHelper, index) {
+function computeLine(calculationParams, resultsTable, calculationHelper, index) {
   var newLine = initLine();
   resultsTable.push(newLine);
 
@@ -202,7 +202,7 @@ and to update them accordingly using a new function.
 You end up with a clearer and more optimized code:
 
 ```Javascript
-computeFirstColumn(calculationParams, resultsTable, calculationHelper, index) {
+function computeFirstColumn(calculationParams, resultsTable, calculationHelper, index) {
   var line = resultsTable[index];
   line.firstColumn = 0;
 
@@ -219,7 +219,7 @@ computeFirstColumn(calculationParams, resultsTable, calculationHelper, index) {
 ## Conclusion
 
 Some points to finish with:
-- This article is not pretending to be an absolute guide to how to run calculations in a project, but it shows you global patterns and a way to reach them.
+- This article does not claim to be an absolute guide to how to run calculations in a project, but it shows you global patterns and a way to reach them.
 **Do not hesitate to adapt them to your project!**
 - **Cut your work into smaller pieces!** Your first goal should be to display an empty results table with the index filled - it allows you to draw and code the general pattern -, then you can proceed column by column.
 The optimization steps can be included in future iterations.
