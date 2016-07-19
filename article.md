@@ -1,7 +1,7 @@
 # How to Turn Your Client's Complex Spreadsheet into Clean Calculation Code
 
 When it comes to developing a calculation feature in your project, there is always this tricky part of specifying with your Product Owner **the formulas you need to get it right and accurate**.
-And you may not have the choice regarding the format of this specification, as your Product Owner can decide to give you an existing corporate spreadsheet and say: "there are the formulas, good luck with that".
+And you may not have the choice regarding the format of this specification, as your Product Owner can decide to give you an existing corporate spreadsheet and say: "here are the formulas, good luck with that".
 
 This is what happened to me in a Javascript-coded project of mine a few days ago.
 A quick look inside the spreadsheet convinced us that the feature we were about to implement was then of O(my god) complexity, and we were even impressed that such a mess managed to get everything done without errors.
@@ -11,12 +11,12 @@ Now it's your turn to get things right in a clean code, but no panic! I will exp
 
 Let's get started!
 
-## The Spreadsheet
+## The Example Spreadsheet
 
-Let's first take a look at the spreadsheet we were given.
-It aims at forecasting the month-by-month evolution of a set of parameters - temperature, species distribution, air quality,... - in an ecological niche depending on given the initial state of the environment and some calculation parameters. This evolution can be calculated according to a model that describes the interation between the different species and their environment.
+Let's describe the example spreadsheet.
+It aims at forecasting the month-by-month evolution of a set of parameters - temperature, species distribution, air quality,... - in an ecological niche depending on given the initial state of the environment and some calculation parameters. This evolution can be calculated according to a model that describes the interation between the different species and between the species and their environment.
 
-Basically, we can identify two areas in the spreadsheet: an area where we can specify the calculation parameters, and the resulting data table that has a fixed number of columns to compute and a number of lines that depends on the calculation duration.
+Basically, we can identify two areas in the spreadsheet: an area where we can specify the calculation parameters, and the resulting data table that has a fixed number of columns to compute - the parameters that we want to compute - and a number of lines that depends on the forecast duration.
 
 ## Understand the Logic
 
@@ -28,7 +28,7 @@ You have to answer one question: in what *order* is the result data calculated? 
 The general case is as follows: to be computed, a line needs the global calculation parameters and the previous calculated line.
 You can then design a calculation pattern that proceeds line by line, always keeping trace of the previous line for calculation needs.
 
-Sometimes - and it was the case for our project -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed.
+Sometimes - and it is the case for our example spreadsheet -, you have a slightly more complicated situation where a line depends on all the previously calculated lines to be computed.
 For example, your formula for a column may depend on a sum on the last values and not only on the last value.
 This is the case we will study, and we will thus **perform a line-by-line calculation that keeps track of all the previous lines**.
 
@@ -47,10 +47,29 @@ Here is an example of parameters object:
 
 ```Javascript
 var calculationParams = {
-  calculationDurationInYears: 8,
+  forecastDurationInYears: 8,
+  foodResources: {
+    percentageForA: 10,
+    percentageForB: 13
+  },
+  predation: {
+    rateAB: 0.1,
+    rateBA: 0,
+    considerAB: true,
+    considerBA: false
+  },
   ...
   initialState: {
+    month: 0,
     temperature: 28,
+    speciesA: {
+      population: 10000,
+      ...
+    },
+    speciesB: {
+      population: 700,
+      ...
+    },
     ...
   }
 };
@@ -62,11 +81,13 @@ You can provide new lines to your results table using a function:
 function initLine() {
   const emptyLine = {
     month: 0,
-    year: 0,
-    firstResultGroup: {
+    temperature: 0,
+    speciesA: {
+      population: 0,
       ...
     },
-    secondResultGroup: {
+    speciesB: {
+      population: 0,
       ...
     }
   };
@@ -79,10 +100,11 @@ Let's write the main calculation function:
 
 ```Javascript
 function computeResults(calculationParams) {
-  const monthsToCompute = calculationParams.calculationDurationInYears * 12;
+  const monthsToCompute = calculationParams.forecastDurationInYears * 12;
   var resultsTable = [];
+  resultsTable.push(calculationParams.initialState);
 
-  for(var i=0; i<monthsToCompute; i++) {
+  for(var i=1; i<monthsToCompute; i++) {
     computeLine(calculationParams, resultsTable, i);
   }
 
@@ -97,8 +119,8 @@ function computeLine(calculationParams, resultsTable, index) {
   var newLine = initLine();
   resultsTable.push(newLine);
 
-  computeFirstColumn(calculationParams, resultsTable, index);
-  computeSecondColumn(calculationParams, resultsTable, index);
+  computePopulationEvolutionA(calculationParams, resultsTable, index);
+  computePopulationEvolutionB(calculationParams, resultsTable, index);
   // and so on!
 }
 ```
@@ -113,47 +135,49 @@ To convince yourself of the importance of this step, try to imagine what inspire
 
 
 ```
-=IF($A49="";"";IF($B$42;IF($A49>=12*8;IF($B49=DATE(C49;1;1);$B$43*$O49;$B$43*$O49-SUMIFS($AF48:$AF$49;$C48:$C$49;C49;$A48:$A$49;">=96")-SUMIFS($AY48:$AY$49;$C48:$C$49;C49;$A48:$A$49;">=96"));0);IF($A49>=12*8;IF($B49=DATE(C49;1;1);$B$43*$B$44;$B$43*$B$44-SUMIFS($AH48:$AH$49;$C48:$C$49;C49;$A48:$A$49;">=96")-SUMIFS($BA48:$BA$49;$C48:$C$49;C49;$A48:$A$49;">=96"));0)))
+=IF($B$4;IF($E50>$B$11;($E$2-$G$3*SUMIFS($H$10:$H49;$A$10:$A49;">$A50-36"))*$F50;0);IF($F50>0;($I$5-$I$6*(SUMIFS($H$10:$H49;$X50;true)-SUM($I$10:$I49)));0))
 ```
 
 and
 
 ```
-IF someOption is activated
-	IF the current index is >= 96
-		resultValue = someParam * someColumn - (sum of someColumn values of this year) - (sum of someOtherColumn values of this year)
+IF take predation A -> B into account
+	IF population A > predation threshold
+		populationEvolutionB = (reproductionRateA - predationRateAB * (sum on all the births for species B on the past 3 years)) *  population B
 	ELSE
-		 resultValue = 0
+		 populationEvolutionB = 0
 ELSE
-	IF the current index is >= 96
-		resultValue = someParam * someOtherParam - (sum of someColumn values of this year) - (sum of someOtherColumn values of this year)
+	IF population B > 0
+		populationEvolutionB = (birth rate B - death rate B) * ((sum on all the births of B in viable past months) - (sum on all the deaths of B over the past months))
 	ELSE
-		resultValue = 0
+		populationEvolutionB = 0
 ```
 
 When coding, the second option is way better! When turning this formula into a function it gives us, without trying to refactor at first:
 
 ```Javascript
-function computeFirstColumn(calculationParams, resultsTable, index) {
+function computePopulationEvolutionB(calculationParams, resultsTable, index) {
   var line = resultsTable[index];
-  line.firstColumn = 0;
+  line.speciesB.evolution = 0;
 
-  var sum1 = 0;
-  var sum2 = 0;
-  for (var i=index-1; i <= index - 12; i--) {
-    if (resultsTable[i].year == line.year) {
-      sum1 += resultsTable[i].someColumn;
-      sum2 += resultsTable[i].someOtherColumn;
-    }
+  var sumBirths3Years = 0;
+  var sumBirthsViable = 0;
+  var sumDeaths = 0;
+  for (var i=0; i < index; i++) {
+    var loopLine = resultsTable[i];
+    if (loopLine.month >= line.month - 36)
+      sumBirths3Years += loopLine.speciesB.births;
+    if (loopline.speciesB.viableBirth)
+      sumBirthsViable += loopLine.speciesB.births;
+    sumDeaths += loopLine.speciesB.deaths;
   }
 
-  if (calculationParams.someOption)
-    if (index >= 96)
-      line.firstColumn = calculationParams.someParam * resultsTable[index - 1].someColumn - sum1 - sum2;
-  } else {
-    if (index >= 96)
-      line.firstColumn = calculationParams.someParam * calculationParams.someOtherParam - sum1 - sum2;
-  }
+  if (calculationParams.predation.considerAB)
+    if (line.speciesA.population > calculationParams.predation.threshold)
+      line.speciesB.evolution = line.speciesB.population * (calculationParams.reproduction.rateA - calculationParams.predation.rateAB * sumBirths3Years);
+  else
+    if (line.speciesB.population > 0)
+      line.speciesB.evolution = (line.speciesB.birthRate - line.speciesB.deathRate) * (sumBirthsViable - sumDeaths);
 }
 ```
 
@@ -163,18 +187,20 @@ which is not so obvious when you take a look at the spreadsheet formula...
 
 We drew the most general code pattern for this kind of line-by-line calculations.
 Of course, **the calculations themselves can be optimized, but this is specific to your formulas**.
-If you look carefully at my previous implementation of *computeFirstColumn*, you can notice that the calculation of the sums inside the function is completely inefficient, as I will need to recompute the sum every time I add a line to my results table.
+If you look carefully at my previous implementation of *computePopulationEvolutionB*, you can notice that the calculation of the sums inside the function is completely inefficient, as I will need to recompute the sum every time I add a line to my results table.
 
 An optimization workaround could be to create a helper object to keep track of the intermediate results:
 
 ```Javascript
 function computeResults(calculationParams) {
-  const monthsToCompute = calculationParams.calculationDurationInYears * 12;
+  const monthsToCompute = calculationParams.forecastDurationInYears * 12;
   var resultsTable = [];
+  resultsTable.push(calculationParams.initialState);
 
   var calculationHelper = {
-    someColumnSum: 0,
-    someOtherColumnSum: 0
+    sumBirthsViableB: 0,
+    sumDeathsB: 0,
+    sumBirths3YearsB: 0
   };
 
   for(var i=0; i<monthsToCompute; i++) {
@@ -190,8 +216,8 @@ function computeLine(calculationParams, resultsTable, calculationHelper, index) 
   var newLine = initLine();
   resultsTable.push(newLine);
 
-  computeFirstColumn(calculationParams, resultsTable, calculationHelper, index);
-  computeSecondColumn(calculationParams, resultsTable, calculationHelper, index);
+  computePopulationEvolutionA(calculationParams, resultsTable, index);
+  computePopulationEvolutionB(calculationParams, resultsTable, index);
   // and so on!
 
   updateCalculationHelper(calculationParams, resultsTable, calculationHelper, index);
@@ -202,17 +228,16 @@ and to update them accordingly using a new function.
 You end up with a clearer and more optimized code:
 
 ```Javascript
-function computeFirstColumn(calculationParams, resultsTable, calculationHelper, index) {
+function computePopulationEvolutionB(calculationParams, resultsTable, calculationHelper, index) {
   var line = resultsTable[index];
   line.firstColumn = 0;
 
-  if (calculationParams.someOption)
-    if (index >= 96)
-      line.firstColumn = calculationParams.someParam * resultsTable[index - 1].someColumn - calculationHelper.someColumnSum - calculationHelper.someOtherColumnSum;
-  } else {
-    if (index >= 96)
-      line.firstColumn = calculationParams.someParam * calculationParams.someOtherParam -  calculationHelper.someColumnSum - calculationHelper.someOtherColumnSum;
-  }
+  if (calculationParams.predation.considerAB)
+    if (line.speciesA.population > calculationParams.predation.threshold)
+      line.speciesB.evolution = line.speciesB.population * (calculationParams.reproduction.rateA - calculationParams.predation.rateAB * calculationHelper.sumBirths3YearsB);
+  else
+    if (line.speciesB.population > 0)
+      line.speciesB.evolution = (line.speciesB.birthRate - line.speciesB.deathRate) * (calculationHelper.sumBirthsViableB - calculationHelper.sumDeathsB);
 }
 ```
 
